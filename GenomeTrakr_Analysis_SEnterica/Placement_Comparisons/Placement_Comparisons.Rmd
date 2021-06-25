@@ -1,0 +1,83 @@
+---
+title: "Placement_Comparisons"
+output: html_document
+---
+## Placement Tool Comparison Data Table
+
+This section explains the meaning of each column in the data table (Combined_Data_Final). 
+
+For all distance columns: Distances are calculated as -log10(Distance) where Distance is the pairwise distance measured through branch lengths between the original query and nearest hit in the resulting clade (this could alternatively be recalculated to be distance to the clade MRCA). Tests where the original query falls within the MRCA of the resulting clade are set to -6 for clarity in plotting. 
+
+Sliding_Distances - Distance calculations from our method using the sliding scale. This method calculates the number of nucleotide mismatches between the query and all references, first searching for references with 9 mismatches or fewer, and increasing this threshold in steps if there are no matches at low thresholds. The initial threshold is 9 mismatches, and increases to 14, 19, 24, and finally 29 mismatches before stopping. The final calculated clade takes all the resulting hits and finds the MRCA of all of those hits. The descendants of that final MRCA is the resulting clade from the sliding scale method. There are 5 tests marked as N/A where our method was not able to locate any hits in the phylogeny, meaning that there were no references in the phylogeny within 29 mismatches of the original query. 
+
+Sliding_Clade_Size - The number of assemblies under the resulting MRCA calculated from the sliding scale method. Clade sizes in the 800-1000+ range mean the MRCA was very high in the phylogenetic tree and the placement is not strong due to hits in multiple parts of the tree. 
+
+Placement_Distances - Distance calculations for results from the placement tool (EPA-ng). Hits are called by taking descendants of all edges reported by EPA-ng which fall within the 99% LWR (likelihood weight ratio) range. The MRCA of all of these hits is calculated and all descendants below that MRCA are considered the resulting assigned clade. 
+
+Placement_Size - The number of assemblies under the resulting MRCA calculated from EPA-ng. 
+Pendant_Distances - Distances calculations for results from EPA-ng but adjusted by using mean pendant length. Hits are called by taking descendants of all edges reported by EPA-ng which fall within the 99% LWR range. The MRCA of all of these hits is calculated, and then a list of ancestors is created by moving up the phylogenetic tree to the top from the initial calculated MRCA. The initial MRCA is adjusted by moving up the tree one ancestor at a time, summing the pairwise distance to the next ancestor node, until the mean pendant length value is reached. This pendant-adjusted MRCA will be in a higher position in the tree depending on the length of the pendant size. The final assigned clade is considered to be all descendants of the pendant-adjusted MRCA.
+
+Pendant_Size - The number of assemblies under the resulting MRCA calculated from EPA-ng.
+
+Pendant_Length - The mean pendant length for all reported edges (within 99% LWR) from each query. 
+
+## Plotting Data
+```{ggplot}
+library(ggplot2)
+```
+
+```{Plot 1 - Distances in Sliding Approach vs. Placement Approach}
+ggplot(Combined_Data_Final, aes(x = Sliding_Distances,y = Placement_Distances))+
+  geom_point(size=2, shape=22)
+```
+3 points on this plot are not plotted due to missing placement results from the sliding scale approach.
+
+This plot compares the query placements in our approach to the query placement from the placement tool. There are 40/74 points at (-6,-6) which represents matching placements by both approaches where the query is within the final resulting clade (note that some results are due to large clade sizes which is shown in the following figure - these results are likely to be inaccurate). 
+
+There are 9/74 points in the top right where neither tool is able to accurately place these queries. It is likely that 16s data does not represent the core genome or serovar phylogeny in these queries and it is not possible to accurate place them using 16s sequence data. 
+
+There are 10/74 points in the top left (-6,-1) region which are correctly placed in the sliding scale method but incorrectly placed by EPA-ng. Manual inspection of these situations showed this is caused when there are very few similar references to the original query. 
+
+The range of points with a Sliding_Distances value of -6 and a Placement_Distances value in the -5.5 to -3 range means the placement tool is finding a clade very close to the original query but not capturing the entire clade. The goal of the pendant adjustment is to help in these situations. 
+
+
+```{Plot 2 - Distances in Sliding Approach vs. Pendant Adjusted Placement Approach}
+ggplot(Combined_Data_Final, aes(x = Sliding_Distances,y = Pendant_Distances))+
+  geom_point(size=2, shape=22)
+```
+
+Comparing the results of the query placements in our approach to the pendant adjusted approach shows a shift in most of the points where clades are close to the original query. Adjusting the MRCA by pendant length for all but 2 of these queries expands the resulting clade to contain the original query. Additionally, 2 queries from the top left with poor placement tool results are shifted to correct placements containing the original query (the top left goes from 10/74 to 8/74 points).
+
+```{Plot 3 - Clade Sizes in Sliding Approach}
+ggplot(Combined_Data_Final, aes(x = Sliding_Distances,y = Sliding_Clade_Size))+
+  geom_point(size=2, shape=22)
+```
+
+It is important to also look at how many queries are counted as "correct" and have a distance of -6 but have clades which are too large and therefore are a vague result. In our method, 16/62 query results with a distance of -6 also have a clade representing most of the phylogenetic tree (750+ hits). This typically occurs when there are hits in multiple parts of the tree, causing the resulting MRCA to be a top node in the tree. These 16 results are not accurate enough to use, one potential option would be to include some kind of weighting depending on where the hits were found to improve this. 
+
+```{Plot 4 - Clade Sizes in Placement Approach}
+ggplot(Combined_Data_Final, aes(x = Placement_Distances,y = Placement_Size))+
+  geom_point(size=2, shape=22)
+```
+
+This large clade issue is significantly less prevalent in the placement tool. Only 2 queries with accurate placements (distance = -6) are parts of large clades (1000+). In both of these cases, the placement tool selected an edge at the top of the tree. 
+
+```{Plot 5 - Clade Size Comparison in Placement vs. Pendant Adjusted Placement}
+ggplot(Combined_Data_Final, aes(x = Placement_Size,y = Pendant_Size))+
+  geom_point(size=2, shape=22)
+```
+
+This plot compares clade sizes in the regular placement method versus the pendant adjusted placement method. The general trend is that clade sizes increase when doing this, while mostly maintaining the linear trend. There are 3 queries in the top left on this plot where a small initial placement size was shifted to being a huge clade when adjusting by pendant length, so there are a few situations where this adjustment does not work. 
+
+```{Plot 6 - Clade Sizes in Pendant Adjusted Placement}
+ggplot(Combined_Data_Final, aes(x = Pendant_Distances,y = Pendant_Size))+
+  geom_point(size=2, shape=22)
+
+Combined_Data_Final_Cut<-Combined_Data_Final[which(Combined_Data_Final$Sliding_Distances==(-6) & Combined_Data_Final$Pendant_Distances>(-2)),]
+
+```
+
+It seems that the pendant length adjusted version of the placement tool may be the most effective of the three methods described. A comparison of pendant distances to pendant clade sizes shows that there are only 5 queries with large clades when using this method, compared to the 16 queries we see with large clades in our sliding scale approach. The accuracy between the two methods is similar as shown in plot 2. This approach seems to combine good accuracy with maintaing reasonably sized clades. It seems that the tradeoff is the sliding scale approach cannot place 16 queries which end up with huge clades due to hits in different parts of the tree, while the pendant adjusted placement approach cannot place 8 queries due to weak representation in the phylogeny. 
+
+The subset of the data frame representing those 8 queries (distance score of -6 in the sliding scale approach and a distance less than -2 in the pendant adjusted placement) shows that 5 of these have large clades when calculated using the sliding scale method (300+) suggesting inaccurate placements. The other 3 queries have very small resulting clades (2-3 hits in the clade), which shows that there is not a strong emerging clade or serovar associated with these queries. Due to the low confidence in these placements from the sliding scale method, the pendant adjusted placement method seems much more effective as it eliminates many of the large clades which occur in the sliding scale method. 
+
