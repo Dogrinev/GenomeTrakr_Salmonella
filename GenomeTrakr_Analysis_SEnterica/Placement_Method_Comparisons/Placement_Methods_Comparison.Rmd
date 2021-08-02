@@ -3,40 +3,59 @@ title: "Placement_Comparisons"
 output: html_document
 ---
 Methods Description
+
 We use three modified approaches with the placement algorithm (EPA-NG) to try to place Salmonella sequences in our reference assemblies. Each approach is described in specific detail and then compared using three metrics. The three comparisons which are performed will be measuring:
 
 1. Clade Size. This is calculated by measuring maximum depth. We measure the pairwise distance between the MRCA of all hits and the farthest hit from that MRCA. The pairwise distance between those two positions is the maximum depth. In this measurement, a larger clade size value represents a smaller clade. 
-2. Distance to Original Query. This is calculated by measuring the pairwise distance between the MRCA of the hits and the location of the original query. If the query falls within the descendant clade below the MRCA, this value is reported as 0. Final values for plotting are converted into -log10(pairwise distance).
+
+2. Distance to Original Query. This is calculated by measuring the pairwise distance between the MRCA of the hits and the location of the original query. If the query falls within the descendant clade below the MRCA, this value is reported as a value of 6. Final values for plotting are converted into -log10(pairwise distance).
+
 3. Percentage Serovar Match. This is calculated by determining the fraction of resulting hits which have an identical serovar name to the original query. This measure gives us an idea of how accurate we were in determining the original serovar. 
 
 Each of the three methods builds on the same initial setup of using EPA-NG to place query sequences into our Salmonella reference tree database. The modified methods below incorporate additional steps in order to improve our initial placement method. We want to explore whether modifying the approaches used in the placement method can improve our predictions beyond using the tool at its most basic level. 
 
 Description of Main Placement Method:
 This initial description of this core method will be used in the modified methods discussed later. The following steps are performed in order to use this approach:
+
 1. EPA-NG is ran given the query sequence and all reported distal edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible hits.
+
 2. All tips which are descendants of the output edges are considered to be the set of resulting hits. 
+
 3. The MRCA of these resulting hits is calculated and considered the resulting clade MRCA.
+
 4. All descendants of this clade MRCA are considered the final results of the placement. 
 
 Description of Pendant Adjusted Placement Method:
+
 1. EPA-NG is ran given the query sequence and all reported distal edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible hits.
+
 2. All tips which are descendants of the output edges are considered to be the set of resulting hits. 
+
 3. The MRCA of these resulting hits is calculated and considered the resulting clade MRCA.
+
 4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by 2 in order to perform the pendant length adjustment.
+
 5. Pendant length adjustment is done by moving a pairwise distance from the clade MRCA towards the tree root by 2x the maximum pendant length value. After traveling up the tree to a new position, the closest proximal (closer to root) node is recorded and labeled as the pendant adjusted MRCA.
+
 6. All descendants of this pendant adjusted MRCA are considered the final results of the placement. 
 
 Note: The reason 2x pendant length is used is from testing a range of pendant length multipliers (0.25x, 0.5x, 1x, 2x, and 4x). These results are not displayed here but can be added or discussed in another document. Pendant length adjustments below 0.5x show no changes all the way up to 0.001x because the pendant length adjustment becomes too small to cause any MRCA changes. Pendant adjustment of 2x showed the best improvment in serovar accuracy percentages and it was chosen for the sake of these examples. It would be worth continuing to narrow down an ideal value in this 1-4x pendant range if the rest of the variations to the method are finalized. 
 
 Description of Pendant Adjusted - Variation Placement Method:
+
 1. EPA-NG is ran given the query sequence and all reported distal edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible hits.
+
 2. All tips which are descendants of the output edges are considered to be the set of resulting hits. 
+
 3. The MRCA of these resulting hits is calculated and considered the resulting clade MRCA.
+
 4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by 2 in order to perform the pendant length adjustment.
+
 5. Pendant length adjustment is done by moving a pairwise distance from the clade MRCA towards the tree root by 2x the maximum pendant length value. After traveling up the tree to a new position, the closest node (either distal or proximal) from the new position is chosen as the pendant adjusted MRCA. 
+
 6. All descendants of this pendant adjusted MRCA are considered the final results of the placement. 
 
-Note: This third method is very similar to the second method. The change made is the second method moves a distance from the clade MRCA to a new position and always choses the proximal (closer to root) node adjacent to that position. The third method moves a distance from the clade MRCA and will choose either the distal (away from root) or proximal (closer to root) node depending on which is closer. 
+Note: This third method is very similar to the second method. The change made is the second method moves a distance from the clade MRCA to a new position and always choses the proximal (closer to root) node adjacent to that position. The third method moves a distance from the clade MRCA and will choose either the distal (away from root) or proximal (closer to root) node depending on which is closer. The reason for interest in this method is this is a way of trying to limit the increased clade size when doing pendant adjustment. 
 
 *CHANGE THE PATH TO THE LOCATION OF THE FOLDER CONTAINING THIS FILE ON YOUR LOCAL MACHINE*
 
@@ -99,8 +118,28 @@ ggplot(data=Comparison_Data_DF)+
 ```
 
 Black - Placement Method
+
 Red - Pendant Method 
+
 (This plot needs a legend)
 
 Another way to visualize this difference is in this combined plot comparing the serovar accuracy and query distance in the two methods. The points in black represent the values from the placement method and the points in red represent the values from the pendant method. We see improvement in the ability to locate the query with a shift of points towards a value of 6 (meaning the original query was found) while serovar accuracy is partially reduced when using the pendant adjustment method. 
 
+```{r, Query Distance Comparison of the Two Methods}
+ggplot(Comparison_Data_DF, aes(x = Pendant_Query_Dist,y = Pendant2_Query_Dist))+
+  geom_point(size=2, shape=22)+
+  ggtitle("Distance to Query in Pendant Adj Method and Pendant Adj Variation Method")
+```
+
+The differences between the pendant adjusted method and the pendant adjusted variation are fairly small. Allowing the pendant adjusted MRCA to be flexible (moving distal or proximal) depending on how far up the tree we move means sometimes we get smaller clades (as opposed to always chosing the proximal node). There are two cases where this reduction in clade size results in the original query not being found, in all other queries the results are similar regardless of which variation is used.
+
+```{r, Mean Serovar Identifcation Comparison of the Two Methods}
+mean(Comparison_Data_DF$Pendant_Serovar_Accuracy)*100
+mean(Comparison_Data_DF$Pendant2_Serovar_Accuracy)*100
+```
+
+The level of serovar accuracy is very close between the pendant adjusted method and the pendant adjusted variation method. There is a very slight increase in overall serovar accuracy measured by mean serovar accuracy across all queries. In terms of specific queries, 15 lose serovar accuracy when using the variation of the pendant adjusted method, and 16 gain serovar accuracy when using the variation. The mean serovar accuracy across all queries increases from 49.01% to 49.43% when using the pendant adjustment variation method. 
+
+As expected, increasing the size of the clade by moving up the tree towards the root increases our ability to find the original query which was tested at the cost of serovar accuracy. Larger clades tend to capture the original query more often, but also include more hits which do not match the original serovar and dilute the pool of correct serovar matches. Pendant adjustment does what we expect, in terms of expanding the clade of hits and finding the original query, but sometimes at the cost of some serovar identification confidence. 
+
+Logical next steps for fine tuning the method would include optimizing the pendant length multiplier. A limited range of pendant length multipliers was tested, so further optimization can be done here. For fine tuning, a general metric of accuracy may be useful. For example, calculating the number of queries with >50% serovar match or a similar metric. Comparison of fine tuning graphically will be challenging because of how similar the results end up looking when compared on side by side plots. 
