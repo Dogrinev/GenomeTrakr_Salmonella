@@ -1,0 +1,205 @@
+---
+title: "Placement Methods Evaluation"
+output: html_document
+---
+**Methods Description**
+
+In this evaluation, we analyzed the results of four modified approaches with the placement algorithm (EPA-NG) to try to place Salmonella sequences in our reference assemblies. Each approach is described in specific detail and then compared using three metrics. The three comparisons which are performed will be measuring:
+
+1. Clade Size. This is calculated by measuring maximum depth. We measure the pairwise distance between the MRCA of all hits and the farthest hit from that MRCA. The pairwise distance between those two positions is the maximum depth. In this measurement, a larger clade size value represents a smaller clade. 
+
+2. Distance to Original Query. This is calculated by measuring the pairwise distance between the MRCA of the hits and the location of the original query. If the query falls within the descendant clade below the MRCA, this value is reported as a value of 6. Final values for plotting are converted into -log10(pairwise distance).
+
+3. Percentage Serovar Match. This is calculated by determining the fraction of resulting hits which have an identical serovar name to the original query. The specific calculation is Number of Hits Matching Serovar Name / Total Number of Hits With Serovar Labels. Isolates with no serovar are not counted against this fraction. This measure gives us an idea of how accurate we were in determining the original serovar. 
+
+Each of the variations of the placement method builds on the same initial setup of using EPA-NG to place query sequences into our Salmonella reference tree database. The modified methods below incorporate additional steps in order to improve our initial placement method. We want to explore whether modifying the approaches used in the placement method can improve our predictions beyond using the tool at its most basic level. 
+
+The methods used in this evaluation are described in detail as we progress through the figures describing the data. 
+
+
+**Description of Pendant Adjusted Placement Method v1:**
+
+1. EPA-NG is ran given the query sequence and all reported distal edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible initial hits.
+
+2. All tips which are descendants of the output edges are considered to be the set of initial hits. 
+
+3. The MRCA of these initial hits is calculated and considered the initial clade MRCA.
+
+4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by a scaler in order to perform the pendant length adjustment. The scaler is varied in order to optimize for best algorithm performance.
+
+5. Pendant length adjustment is done by moving a pairwise distance from the initial clade MRCA towards the tree root by a multiple of the maximum pendant length value. After traveling up the tree to a new position, the closest proximal (closer to root) node is recorded and labeled as the pendant adjusted MRCA.
+
+6. All descendants of this pendant adjusted MRCA are considered the final hits for the method.
+
+*CHANGE THE PATH TO THE LOCATION OF THE FOLDER CONTAINING THIS FILE ON YOUR LOCAL MACHINE*
+
+## Plotting Data
+```{r, Data Loading}
+library(ggplot2)
+path <- ("~/Desktop")
+load(file.path(path, "Placement_Evaluation_Data.Rdata"))
+```
+
+The goal of this evaluation is to come up with a visualization for comparing small differences in our methods by using the three metrics described above. I think the most powerful two metrics for making these comparisons are the distance to original query and the percentage serovar match. Clade size is useful for comparing clade size between methods side by side, but does not seem as important for understanding how accurately the method is working. 
+
+In order to compare methods and analyze the range of possible pendant multipliers to use, the following plots will show the changes in serovar accuracy and ability to locate the original query combined together on one plot. 
+
+```{r, Pendant Multiplier Evaluation in Pendant Adjusted Method v1}
+ggplot(Evaluator_Results_DF_v1, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ggtitle("Pendant Multiplier Evaluation (Pendant Adjusted Method v1)")
+```
+
+**Figure 1 - Pendant Multiplier Evaluation in Pendant Adjusted Method v1**
+
+Note: OQ_Percentage refers to the percentage of total tests where the original query was located in the final clade (having a score of 6). This is converted to a percentage to get an overall measure of how well we identified the original query as a whole in each pendant length multiplier. 
+
+The general trend that is observed is that as the pendant length multiplier is increased (resulting in larger clades), we reduce the serovar percentage match. This is because larger clades will include more incorrect matches as we become less specific with the resulting clade. The percentage of original queries found shows the opposite trend, where bigger clades improve our ability to find the original query. 
+
+We see a peak in pendant length multiplier range around 0.25 - 1.5, where we are maintaing high original query percentages but also getting maximum possible serovar percentage match. Although shifting pendant length multipliers to extremely small values (~0.01x) continues to push the serovar percentage match higher, we lose significant amounts of original queries, with the OQ percentage dropping below 70%. The strictness of these clades does increase our confidence in the serovar identification, but at a significant cost of the ability to locate our original query. For context, it is worth noting that in the original placement method with no pendant adjustment, we calculated a mean original query identification percentage of 56%. This means that even at very low pendant length multipliers, we are locating original queries better than we would without doing pendant length adjustment. 
+
+
+**Description of Pendant Adjusted Placement Method v2:**
+
+1. EPA-NG is ran given the query sequence and all reported distal edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible initial hits.
+
+2. All tips which are descendants of the output edges are considered to be the set of initial hits. 
+
+3. The MRCA of these initial hits is calculated and considered the initial clade MRCA.
+
+4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by a scaler in order to perform the pendant length adjustment. The scaler is varied in order to optimize for best algorithm performance.
+
+5. Pendant length adjustment is done by moving a pairwise distance from the initial clade MRCA towards the tree root by a multiple of the maximum pendant length value. After traveling up the tree to a new position, the closest node (distal or proximal) to this position is recorded and labeled as the pendant adjusted MRCA.
+
+6. All descendants of this pendant adjusted MRCA are considered the final results of the placement. 
+
+Changes in v2 of the algorithm: Version 2 is very similar to version 1 with a change in the way that the final pendant adjusted MRCA is decided. The difference in the methods is that the v1 method moves a distance from the initial clade MRCA to a new position and always choses the proximal (closer to root) node adjacent to that position. The v2 method moves a distance from the initial clade MRCA and will choose either the distal (away from root) or proximal (closer to root) node depending on which is closer. The reason for interest in this method is this is a way of trying to limit the increased clade size when doing pendant adjustment. 
+
+```{r, Pendant Multiplier Evaluation in Pendant Adjusted Method v2}
+ggplot(Evaluator_Results_DF_v2, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ggtitle("Pendant Multiplier Evaluation (Pendant Adjusted Method v2)")
+```
+
+**Figure 2 - Pendant Multiplier Evaluation in Pendant Adjusted Method v2**
+
+The modifications made in version 2 change the performance of the algorithm. The peak in serovar percentage match in v1 reached approximately 50.40% mean percentage match, which the peak in v2 rises to approximately 50.55% mean percentage match. There is also an outlier peak in v2 which occurs at pendant multiplier 1.45 and 1.50 which reaches 50.75% serovar match. Although these changes in the mean percentage are small, the types of modifications to the algorithm that we are making are very subtle and are not going to largely change the numbers that we observe. We do observe a drop in our original query identification percentage in v2, shifting from 78-81% in v1 (depending on pendant length multiplier) to 74-79% in v2. In this case, the gain in serovar percentage match comes at the cost of some original query identifcation power. This result is expected based on the change made to the algorithm. The change to final MRCA decision making causes clades to sometimes be more restricted, which is consistent from what we see before, where smaller clades increase the percentage serovar match while reducing our original query identification. 
+
+
+**Changes to Serovar Labeling **
+
+The next modification made is changes to how we map the serovars and calculate our serovar percentage match. Originally, the serovar labels were pulled from the GenomeTrakr database which was initially downloaded. There are two issues with using these serovar labels: 
+
+1. Not all assemblies have an associated serovar, sometimes this entry is left blank and these are excluded from our serovar percentage match calculation. 
+
+2. The serovar entries are not always consistently entered into the database, resulting in labeling differences. We are calculating serovar percentage match by matching exact text strings from the original serovar to all of the final hits, if there are any difference in the text string even when the serovar is the same, the match may not be called due to text labeling. For example, three different Thomas serovar entries are labeled in the following way but are not considered exact string matches:
+
+```{r, Serovar Text Not Matching}
+paste("Thompson")
+paste("Thompson, 6, 7:-:1, 5")
+paste("Thompson, K 39; 6, 7 : K : 1, 5; 8")
+```
+
+To mitigate these issues, we used in silico serovar prediction to computationally assign a serovar to each of our assemblies. Doing computational assignment will increase the consistency of serovar labels because of the exact text strings used to describe each serovar. Additionally, it will give us a serovar prediction for all unlabeled assemblies. We used the SISTR tool run through the command line with the following command on raw FASTAs of all assemblies in the phylogenetic tree:
+
+*sistr --qc -f json -o assembly_output.json assembly.fasta*
+
+The resulting serovar predictions were pulled from output JSON files and combined into a new serovar reference data table and compared to the original serovar entries to evaluate if we want to use the computational serovar labels. Of the pool of 880 assemblies in this table, 63/880 (~7%) disagree in serovar prediction, meaning the submitted serovar from the lab is different from our computationally determined serovar. It is good to see the vast majority of computationally predicted serovars agreeing with the submitted serovar data. In addition to this, computational prediction added 89 new serovar assignments which were previously unlabeled in the GenomeTrakr dataset. Because of the high level of agreement between the computational serovar prediction and the original serovar submissions, we believe it is worth switching to calculating our confidence in serovar accuracy based on the computational assignments rather than the lab submitted serovar assignments. The value we gain by using computational serovar assignments is 89 extra data points which we did not have before, and improved consistency in text string labeling which we used to calculate our level of accuracy. 
+
+```{r, Pendant Multiplier Evaluation in Pendant Adjusted Method v1 - Serovars Computationally Assigned}
+ggplot(Evaluator_Results_DF_v2_SC, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ggtitle("Pendant Multiplier Evaluation (Pendant Adjusted Method v1)")
+```
+
+**Figure 3 - Pendant Multiplier Evaluation in Pendant Adjusted Method v1 (Computational Serovars)**
+
+The serovar percentage match shows a large increase when using the computationally assigned serovars compared to the lab submitted serovar labels. This comparison is done using method v1, so the serovar percentage match values should be compared to Figure 1. We see our peak rise from 50.5% to nearly 55.0% when using the computationally assigned serovars. It is likely that the increased consistency in labeling contributes to this, along with addition of new serovar labels for previously unlabeled assemblies. Going forward throughout our analyses, we will continue to use the computationally assigned serovar labels for our calculations instead of the lab assigned serovar labels from the original GenomeTrakr database. 
+
+
+**Description of Pendant Adjusted Placement Method v3:**
+
+Note: Version 3 is a fix to an error discovered in the original function of the algorithm. 
+
+1. EPA-NG is ran given the query sequence and all reported distal edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible initial hits.
+
+2. All tips which are descendants of the output edges are considered to be the set of initial hits. 
+
+3. The MRCA of these initial hits is calculated and considered the initial clade MRCA.
+
+4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by a scaler in order to perform the pendant length adjustment. The scaler is varied in order to optimize for best algorithm performance.
+
+5. Pendant length adjustment is done by moving a pairwise distance from the initial clade MRCA towards the tree root by a multiple of the maximum pendant length value. After traveling up the tree to a new position, the closest node (distal or proximal) to this position is recorded and labeled as the pendant adjusted MRCA. If the pendant length is small enough, it is possible that the MRCA will not change during pendant length adjustment. 
+
+6. All descendants of this pendant adjusted MRCA are considered the final results of the placement. 
+
+Changes in v3 of the algorithm: This version is correction of an error in step 5, which is the fact that small enough pendant lengths can mean the MRCA will not change after pendant length adjustment. If the pendant length is less than half of the distance to the MRCA's parent node, the MRCA will not be changed. This error was observed in previous versions of the algorithm where it was noticed that the MRCA always increased after pendant length adjustment, and this behavior is not consistent with the method which we described. It is possible that forcing movement of the MRCA upwards can be incorrect to do, especially with very short pendant lengths. 
+
+```{r, Pendant Multiplier Evaluation in Pendant Adjusted Method v3}
+ggplot(Evaluator_Results_DF_v3, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ylim(0.545,0.59)+
+  ggtitle("Pendant Multiplier Evaluation (Pendant Adjusted Method v3)")
+```
+
+**Figure 4 - Pendant Multiplier Evaluation in Pendant Adjusted Method v3**
+
+The fix to the algorithm which is included in version 3 appears important as we see further increases in our serovar percentage match, peaking around 58.5%. We see a more consistent peak in v3, with a cluster of maximal serovar percentage match between pendant length multiplier values 1.5-2. We still maintain our level of original query identification percentage around 74%. Compared to previous methods, this is the best algorithm performance that we have observed up to this point. 
+
+
+**Description of Pendant Adjusted Placement Method v4:**
+
+1. EPA-NG is ran given the query sequence and all reported edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible initial hits. Query sequences are inserted in between two nodes by EPA-NG, and either the distal or proximal node is chosen depending on which is closer to the query insertion point. 
+
+2. All tips which are descendants of the closest node to the query branch insertion point are considered to be the set of initial hits. 
+
+3. The MRCA of these initial hits is calculated and considered the initial clade MRCA.
+
+4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by a scaler in order to perform the pendant length adjustment. The scaler is varied in order to optimize for best algorithm performance.
+
+5. Pendant length adjustment is done by moving a pairwise distance from the initial clade MRCA towards the tree root by a multiple of the maximum pendant length value. After traveling up the tree to a new position, the closest node (distal or proximal) to this position is recorded and labeled as the pendant adjusted MRCA. If the pendant length is small enough, it is possible that the MRCA will not change during pendant length adjustment. 
+
+6. All descendants of this pendant adjusted MRCA are considered the final results of the placement. 
+
+Changes in v4 of the algorithm: This version modifies the initial steps of the algorithm where the set of original hits is selected. In previous versions, we would always choose the distal node from the edges which are reported by EPA-NG. Since the query insertion branch can be closer to either the proximal or distal node, it is possible that using the proximal node is a more accurate representation of where the query should belong. This version uses the distal length reported by EPA-NG to determine whether the distal or proximal node should be selected, by calculating which the insertion branch is more close to. 
+
+```{r, Pendant Multiplier Evaluation in Pendant Adjusted Method v4}
+ggplot(Evaluator_Results_DF_v4, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ylim(0.545,0.59)+
+  ggtitle("Pendant Multiplier Evaluation (Pendant Adjusted Method v4)")
+```
+
+**Figure 5 - Pendant Multiplier Evaluation in Pendant Adjusted Method v4**
+
+Version 4 shows a very marginal potential improvement over version 3. We observe a slight increase in serovar percentage match at pendant length multiplier 2.0, and a slight decrease for pendant length multipliers between 1.55 and 2.0. The other change in version 4 is that the original query identification percentage increases by 1 assembly in this range, so this modification to the method also for one extra query to be found. It is tough to decide here if this modification is worth implementing, since we lose slight serovar percentage match around the peak (although very miniscule changes) and gain the ability to identify 1 extra query. It appears that changing the way initial hit nodes are selected does not have large impacts because we calculate a general MRCA from those hits anyways and switching between the distal or proximal node does not fundamentally alter the clade. 
+
+A final observation after evaluation of these methods is that the serovar percentage match percentage gives us an average estimation of how well we are doing, but it does not give any information on the distribution that we observe. Looking more specifically at pendant length multiplier 1.55 in method v4, we observe a bimodal distrubution of our serovar accuracy, clustering near 0% and 100%. 
+
+```{r, Serovar Percentage Match Distribution in Method v4 with Pendant Length Multiplier 1.55}
+hist(Placement_Accuracy_DF_v4$V2,breaks=20,xlab = "Serovar Percentage Match",main = "Serovar Percentage Match Distribution - v4")
+```
+
+**Figure 6 - Serovar Percentage Match Distribution in Method v4 (Pendant Length Multiplier = 1.55)**
+
+This shows that we are either highly accurate or inaccurate in our final serovar percentage matches. This means when we are able to identify a serovar, it is likely we will be able to be very confident that we have identified the correct one. There are still a handful of cases where this approach does not work and we are not able to succesfully identify a serovar through 16s rRNA gene data. 
+
+
+
+
+
