@@ -1,0 +1,185 @@
+---
+title: "Placement_Method_Evaluation_EC"
+output: html_document
+---
+
+**Methods Description**
+
+In this evaluation, we analyzed the serovar results from Salmonella where we had poor serovar identification accuracy. In addition, we applied the most modern version of the placement algorithm on the E. coli dataset to see if we achieve similar results in terms of results. We use three metrics here in order to evaluate algorithm performance, the three comparisons which are performed will be measuring:
+
+1. Clade Size. This is calculated by measuring maximum depth. We measure the pairwise distance between the MRCA of all hits and the farthest hit from that MRCA. The pairwise distance between those two positions is the maximum depth. In this measurement, a larger clade size value represents a smaller clade. 
+
+2. Distance to Original Query. This is calculated by measuring the pairwise distance between the MRCA of the hits and the location of the original query. If the query falls within the descendant clade below the MRCA, this value is reported as a value of 6. Final values for plotting are converted into -log10(pairwise distance).
+
+3. Percentage Serovar Match. This is calculated by determining the fraction of resulting hits which have an identical serovar name to the original query. The specific calculation is Number of Hits Matching Serovar Name / Total Number of Hits With Serovar Labels. Isolates with no serovar are not counted against this fraction. This measure gives us an idea of how accurate we were in determining the original serovar. 
+
+Each of the variations of the placement method builds on the same initial setup of using EPA-NG to place query sequences into our Salmonella reference tree database. The modified methods below incorporate additional steps in order to improve our initial placement method. We want to explore whether modifying the approaches used in the placement method can improve our predictions beyond using the tool at its most basic level. 
+
+The version of the placement algorithm used for the E. coli analysis is described in detail below:
+
+**Description of Pendant Adjusted Placement Method v4:**
+
+1. EPA-NG is ran given the query sequence and all reported edges within the 99.9% likelihood weight ratio (LWR) range are considered for possible initial hits. Query sequences are inserted in between two nodes by EPA-NG, and either the distal or proximal node is chosen depending on which is closer to the query insertion point. 
+
+2. All tips which are descendants of the closest node to the query branch insertion point are considered to be the set of initial hits. 
+
+3. The MRCA of these initial hits is calculated and considered the initial clade MRCA.
+
+4. The maximum pendant length from the reported edges in EPA-NG is recorded and multiplied by a scaler in order to perform the pendant length adjustment. The scaler is varied in order to optimize for best algorithm performance.
+
+5. Pendant length adjustment is done by moving a pairwise distance from the initial clade MRCA towards the tree root by a multiple of the maximum pendant length value. After traveling up the tree to a new position, the closest node (distal or proximal) to this position is recorded and labeled as the pendant adjusted MRCA. If the pendant length is small enough, it is possible that the MRCA will not change during pendant length adjustment. 
+
+6. All descendants of this pendant adjusted MRCA are considered the final results of the placement. 
+
+*CHANGE THE PATH TO THE LOCATION OF THE FOLDER CONTAINING THIS FILE ON YOUR LOCAL MACHINE*
+
+## Plotting Data
+```{r, Data Loading}
+library(ggplot2)
+path <- ("~/Desktop")
+load(file.path(path, "Placement_Evaluation_EC.Rdata"))
+load(file.path(path, "Placement_Evaluation_Data.Rdata"))
+```
+
+**Analysis of Poorly Placed Assemblies (Salmonella):**
+
+There were 33/79 assemblies with poor serovar accuracy (<50%). We want to understand what the results looked like in these poor placements and see if we are calling serovars incorrectly or if we are just unable to place accurately. Because these examples need to be looked at on an individual basis, we went through all of these 33 results manually to understand the results. The plots are difficult to visualize because of the size but the results will be described here. The poor placements were separated into 4 categories of results:
+
+1. Wrong Serovar Called - This is the worst situation for our analysis, where we incorrectly predict the serovar.
+
+2. Unclear Serovar Called - This is the situation where the correct serovar was not identified but no clear serovar result was observed.
+
+3. Poor Placement - This is the situation where a node close to the root was chosen by the placement algorithm so the resulting clade is very large (>500 assemblies) and a serovar cannot be called due to the size of the final clade.
+
+4. Typhimurium / Monophasic Typhimurium Similarity - This is a special case where serovars Typhimurium and Monophasic Typhimurium (1,4,[5],12:i:-) are too similar to be able to be differentiated both by core gene phylogeny and 16s sequences. 
+
+The distribution of these 33 poorly placed assemblies is as follows:
+
+**1. Wrong Serovar Called (10):**
+
+Paratyphi C -> Called Choleraesuis (Adjacent)
+
+Goldcoast -> Called Agona (Adjacent)
+
+Matopeni -> Called Concord (Adjacent)
+
+Rissen -> Called Typhi / Indiana (Adjacent to Indiana, not Typhi)
+
+Pomona -> Called Montevideo 
+
+Saintpaul -> Called Infantis 
+
+Litchfield -> Called Typhimurium/Monophasic 
+
+Stanley -> Called Senftenberg 
+
+Blockley -> Called Typhimurium/Monophasic 
+
+Indiana -> Called Infantis 
+
+The first 3 results in this section (and partially the 4th) were correctly placed and the original serovar is in the same location as the predicted serovar. For these, there is not enough resolution via 16s data to determine the correct serovar because of the similarity of the serovars phylogenetically. These are examples where we cannot identify the correct serovar by our method. This leaves 6/79 assemblies where we incorrectly called a serovar where there is a phylogenetic difference between the original serovar and what was predicted. 
+
+**2. Unclear Serovar Called (7)**
+
+Poona  (73 Hits)
+
+Isangi (77 Hits)
+
+IIIa 62:z36:- (5 Hits)
+
+II 56:b:[1,5] (8 Hits)
+
+IV 16:z4,z32:- (6 Hits)
+
+Stanleyville (3 Hits)
+
+IIIb 60:z52:z53 (2 Hits)
+
+This set of results had resulting serovars where a prediction could not be made because of the variety of results. Poona and Isangi predictions were largely varied in the resulting pool of serovars, and the remaining assemblies had low hit numbers which did not have matches to the original serovar. It is worth noting that 4 of these also had unclear initial serovar assignments, meaning there will be few or no similar assemblies in the tree to use in order to correctly call the serovar. These non-named serovar predictions are often unique in the phylogenetic tree. 
+
+**3. Poor Placement (11)**
+
+Typhi
+
+Muenchen 
+
+I 1,4,[5],12:i:-
+
+Senftenberg
+
+Indiana
+
+Javiana (3 examples in tree)
+
+V Y:z35 (2 examples in tree)
+
+Milwaukee (1 example in tree)
+
+Grumpensis (1 example in tree)
+
+V 60:z41:- (1 example in tree)
+
+Gateshead (1 example in tree)
+
+These are all examples where a placement was made near the root of the tree and the resulting clade is >500 hits. Because of the massive clade size, it is not possible to make a serovar prediction in these cases. It is worth noting that for 6 of these cases, there were only 1-3 matching serovars existing in the phylogenetic tree and in order to make a correct serovar call we would have needed to make an extremely accurate placement. For the 4 cases where the serovar is unique in the tree, it is unlikely we could call an accurate serovar since there are no other examples of that serovar. 
+
+**4. Special Case - Typhimurium / Monophasic Typhimurium Clarity (5)**
+
+5/6 tests of either Typhimurium or Monophasic Typhimurium resulted in a mix of these two serovars because they cannot be distinguished either by core gene phylogeny on the tree or 16s sequences. Because these two serovars are completely mixed together, placements also cannot tell them apart, although it can be assigned that it is clearly one of the two. There was one placement for Monophasic Typhimurium which fell into category 3 of poor placement instead of this special case. 
+
+**Results Breakdown**
+
+These results can be finally grouped into 3 different categories which are important to us for evaluating algorithm performance:
+
+1. Incorrect Serovar Call (A pool of matching serovars to the original exists and we predicted a different serovar) - *7/79*
+
+2. Unclear Serovar Call (A pool of matching serovars exists but we could not make a serovar prediction due to mixed results) - *10/79*
+
+3. Not Possible to Call Serovar (The original serovar is either unique in the tree or is combined with the predicted serovar and cannot be differentiated by our method) - *16/79*
+
+**Analysis of E. Coli Data** 
+
+Due to poor serovar annotation of the E. Coli dataset, it is required to use computational serovar prediction for serovar assignment. There is far too much data missing from original data in order to do any sort of serovar accuracy calculations or predictions. We used the ECTYPER tool to make computational serovar predictions for all assemblies in the tree and treated these as the final serovars for algorithm evaluation. 
+
+Because of the way E. coli serotypes are designated, via the O and H antigen modifications, there is signficant variety in E. coli serovars. Many of the assigned serovars in the E. coli phylogeny are actually completely unique and would be difficult to predict with our limited dataset. For the sake of this analysis, we pulled a test set of 50 assemblies from the top end of assigned serovars so that there would be actual serovar groups to try to map to. The pool that was used for selection is shown below:
+
+```{r, E. coli Top Serovar Groups}
+sort(table(EC_Sero_Table$Serovar),decreasing = TRUE)[1:29]
+```
+
+We selected a pool of 50 test assemblies by pulling randomly 2-3 from each serovar category from the set above, excluding the assemblies with O and H antigen assignments missing (-:-). 
+
+The test set of 50 was run through the most modern version of the placement algorithm described at the top of this document and the results for the best pendant length multiplier are included in the saved data (Final_Placement_Data_EC). We evaluated both our serovar prediction accuracy and original query identification percentage similar to how we calculated in Salmonella. 
+
+```{r, Pendant Multiplier Evaluation in Salmonella}
+ggplot(Evaluator_Results_DF_v4, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ylim(0.545,0.59)+
+  ggtitle("Pendant Multiplier Evaluation (Salmonella Data)")
+```
+
+**Figure 1. Pendant Multiplier Evaluation (Salmonella Data)**
+
+```{r, Pendant Multiplier Evaluation in E. coli}
+ggplot(Evaluator_Results_DF_EC, aes(x=Pendant_Multi, y=Serovar_Percentage,col=OQ_Percentage)) +
+  geom_point()+
+  scale_color_gradient(low="blue", high="red")+
+  xlab("Pendant Length Multiplier")+
+  ylab("Serovar Percentage Match (Mean)")+
+  ggtitle("Pendant Multiplier Evaluation (E. coli Data)")
+```
+
+**Figure 2. Pendant Multiplier Evaluation (E. coli Data)**
+
+In the E. coli data, we see the same logical trend of OQ Percentage increasing as the pendant length multiplier increases, while the serovar percentage peaks around pendant length multiplier 0.5-1.5 and then drops as the pendant length multiplier is increased. One difference between the two data sets is that the pendant multiplier peak for E. coli is at 1x, while we used 1.55x for Salmonella. Both data sets showed similar OQ percentage values near the peak, around 75%, but the E. coli data showed much better serovar percentage match values, peaking over 75% compared to 58% in Salmonella. It is important to note that this test dataset for E. coli is focused on the top end of serovar labels and will improve our prediction value since we are not including assemblies where the serovar cannot be mapped. There were Salmonella tests used where a serovar could not have been realistically predicted which will punish this summary statistic in the Salmonella data. It would be worth considering expanding the E. coli test data set further to include some less common serovars in order to understand how well our placements work when there are fewer queries to map to. 
+
+```{r, Serovar Percentage Match Distribution in E. coli, Pendant Multi 1.0}
+hist(Final_Placement_Data_EC$Serovar_Accuracy,breaks=20,xlab = "Serovar Percentage Match",main = "Serovar Percentage Match Distribution")
+```
+
+**Figure 3. Serovar Percentage Match Distribution in E. coli**
+
+We see a more even distribution in E. coli, but again this may come from the fact that we picked the most populated serovars in the E. coli phylogeny which helps us find serovar match results. The Salmonella distribution was bimodal but also contained test assemblies which could not be mapped, resulting in more 0% match results. 
