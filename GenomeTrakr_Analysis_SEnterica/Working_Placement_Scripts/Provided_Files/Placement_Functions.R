@@ -6,32 +6,28 @@
 #before running the data preparation. The ReferenceFile and Aligned_ReferenceFile are provided and included in 
 #the required files. 
 
-Data_Preparation<-function(PathToRawQuery,PathToAlignedQuery,ReferenceFile,Aligned_ReferenceFile)
+Data_Preparation<-function(PathToAlignedQuery,Aligned_ReferenceFile)
 {
-  Raw_fastaFile <- readDNAStringSet(PathToRawQuery,format = "fasta")
-  Raw_seq_name = names(Raw_fastaFile)
-  Raw_sequence = paste(Raw_fastaFile)
-  Raw_Query_FASTA <- data.frame(Raw_seq_name, Raw_sequence,stringsAsFactors = FALSE)
-  TestSeq<-c(Raw_Query_FASTA[1,2],Raw_Query_FASTA[2,2],Raw_Query_FASTA[3,2],Raw_Query_FASTA[4,2],Raw_Query_FASTA[5,2],Raw_Query_FASTA[6,2],Raw_Query_FASTA[7,2])
   Aligned_fastaFile <- readDNAStringSet(PathToAlignedQuery,format = "fasta")
   Aligned_seq_name = names(Aligned_fastaFile)
   Aligned_sequence = paste(Aligned_fastaFile)
   Aligned_Query_FASTA <- data.frame(Aligned_seq_name, Aligned_sequence,stringsAsFactors = FALSE)
   QTestSequence<-c(Aligned_Query_FASTA[1,2],Aligned_Query_FASTA[2,2],Aligned_Query_FASTA[3,2],Aligned_Query_FASTA[4,2],Aligned_Query_FASTA[5,2],Aligned_Query_FASTA[6,2],Aligned_Query_FASTA[7,2])
   #The placer function will optimize order of references for concatenating in the next step
-  Concat_Orders<-map(.x = 1:1043,.f = ~Super_HAM_Placer(TestSequence = TestSeq,ReferenceSequence = ReferenceFile[[.]]))
-  #This function will concatenate the refence 16s alleles based on their order pulled from above
+  Concat_Orders<-map(.x = 1:1043,.f = ~Super_HAM_Placer(TestSequence = QTestSequence,ReferenceSequence = Aligned_ReferenceFile[[.]]))
+  #This function will concatenate the reference 16s alleles based on their order pulled from above
   Concatenated_References<-map(.x = 1:1043,.f = ~Concatenate_By_Order(Order = Concat_Orders[[.]],RefSequence = Aligned_ReferenceFile[[.]]))
   Prep_For_FASTA<-as.data.frame(unlist(Concatenated_References))
   Prep_For_FASTA2<-cbind(GFFs_Reference,Prep_For_FASTA)
   colnames(Prep_For_FASTA2)<-c("seq.name","seq.text")
-  #The following line outputs a FASTA of the prepared concatenated references
-  dat2fasta(dat = Prep_For_FASTA2,outfile = "concatref.fasta")
   #Next we format and prepare prepare the query FASTA 
   Query_Prep<-as.data.frame(paste(QTestSequence[1],QTestSequence[2],QTestSequence[3],QTestSequence[4],QTestSequence[5],QTestSequence[6],QTestSequence[7],sep = ""))
   Query_Prep2<-cbind("Query",Query_Prep)
   colnames(Query_Prep2)<-c("seq.name","seq.text")
-  dat2fasta(dat = Query_Prep2,outfile = "query.fasta")
+  Sequence_Lists<-as.list(NULL)
+  Sequence_Lists[[1]]<-Query_Prep2
+  Sequence_Lists[[2]]<-Prep_For_FASTA2
+  return(Sequence_Lists)
 }
 
 #This function calculates the best orientation of ASVs to order for use in the placement tool. Since we do not know 
@@ -41,17 +37,37 @@ Data_Preparation<-function(PathToRawQuery,PathToAlignedQuery,ReferenceFile,Align
 
 Super_HAM_Placer<-function(TestSequence,ReferenceSequence)
 {
-  Row1<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[2], vec=TRUE, band=1000))
-  Row2<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[3], vec=TRUE, band=1000))
-  Row3<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[4], vec=TRUE, band=1000))
-  Row4<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[5], vec=TRUE, band=1000))
-  Row5<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[6], vec=TRUE, band=1000))
-  Row6<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[7], vec=TRUE, band=1000))
-  Row7<-map_int(.x = 1:7,.f = ~nwhamming(s1 = TestSequence[.],s2 = ReferenceSequence[8], vec=TRUE, band=1000))
+  Row1<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[2],exclude = c("n","N","?"),ignore.case = TRUE))
+  Row2<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[3],exclude = c("n","N","?"),ignore.case = TRUE))
+  Row3<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[4],exclude = c("n","N","?"),ignore.case = TRUE))
+  Row4<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[5],exclude = c("n","N","?"),ignore.case = TRUE))
+  Row5<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[6],exclude = c("n","N","?"),ignore.case = TRUE))
+  Row6<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[7],exclude = c("n","N","?"),ignore.case = TRUE))
+  Row7<-map_int(.x = 1:7,.f = ~string.diff(a = TestSequence[.],b = ReferenceSequence[8],exclude = c("n","N","?"),ignore.case = TRUE))
   Hamming_Table_Result<-rbind(Row1,Row2,Row3,Row4,Row5,Row6,Row7)
   Combination_Integers<-map_int(.x = 1:5040,.f = ~Super_HAM_Combinator(Hamming_Table = Hamming_Table_Result,Combination = as.integer(CombinationTable[.,])))
   Best_Order<-as.integer(CombinationTable[which(Combination_Integers==min(Combination_Integers))[1],])
   return(Best_Order)
+}
+
+#This function calculates the number of nucleotide position differences between two equal length strings in order
+#to determine the best order of references to align. This function is a replacement for the original use of nwhamming
+#in order to work entirely with pre-aligned files. Using this function saves ~10 minutes of calculations since we 
+#can avoid aligning twice. 
+
+string.diff<-function(a,b,exclude=c("n","N","?"),ignore.case=TRUE)
+{
+  a<-toupper(a)
+  b<-toupper(b)
+  diff.a<-unlist(strsplit(a,split=""))
+  diff.b<-unlist(strsplit(b,split=""))
+  diff.d<-rbind(diff.a,diff.b)
+  for(ex.loop in 1:length(exclude))
+  {
+    diff.d<-diff.d[,!(diff.d[1,]==exclude[ex.loop]|diff.d[2,]==exclude[ex.loop])]
+  }
+  differences<-sum(diff.d[1,]!=diff.d[2,])
+  return(differences)
 }
 
 #The combinator function matches up the results in all possible combinations for finding the minimum value, this function is used

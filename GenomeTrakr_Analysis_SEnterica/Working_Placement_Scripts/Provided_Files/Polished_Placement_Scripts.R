@@ -31,16 +31,21 @@ system(command = paste("mafft --add Raw_Query.fasta --keeplength Full_Alignment.
 #alignment file and renamed to "Aligned_Query.fasta". This file should contain only the 7 aligned sequences from the 
 #previous MAFFT alignment step and no other sequences for the following analysis steps. 
 
-#This first command will prepare the data for you given paths to the raw query FASTA and the aligned query FASTA. This
-#command will output two new files into your working directory which are needed for the EPA-NG command step. In 
-#this function, set the PathToRawQuery and PathToAlignedQuery to the appropriate paths for the query data file and
-#the aligned query file prepared with the previous command. 
+#This first command will prepare the data for you given the path to the aligned query FASTA. The outputted list will be saved
+#as two new files into your working directory which are needed for the EPA-NG command step. In 
+#this function, set the PathToAlignedQuery variable to the appropriate path for the 
+#aligned query file prepared with the previous command. You will need approximately 13 MB of free 
+#space in the working directory to store the two final FASTA files used in EPA-NG. 
 
-Data_Preparation(PathToRawQuery = "Raw_Query.fasta",PathToAlignedQuery = "Aligned_Query.fasta",ReferenceFile = Full_16s_Data_Trim,Aligned_ReferenceFile = Full_16s_Data_Aligned)
+Sequence_Outputs<-Data_Preparation(PathToAlignedQuery = "Aligned_Query.fasta",Aligned_ReferenceFile = Full_16s_Data_Aligned)
+
+#Sequence_Outputs is a list containing the two formatted sequence FASTAs for the query and sorted references. Use
+#the following two commands to save the output FASTAs to your working directory. 
+dat2fasta(dat = Sequence_Outputs[[1]],outfile = "query.fasta")
+dat2fasta(dat = Sequence_Outputs[[2]],outfile = "concatref.fasta")
 
 #EPA-NG section: this command outside of R will require that all of the input files are present in the same working
-#directory. If consistently working in one directory, the Data_Preparation function will have already loaded the 
-#necessary files into the correct location. 
+#directory. 
 
 #EPA-NG (https://github.com/Pbdas/epa-ng) can be installed by two convenient methods:
 
